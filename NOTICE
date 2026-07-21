@@ -1,0 +1,26 @@
+fabric-gateway (Rust)
+Copyright 2026 fabric-gateway-rs contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party bundled source
+--------------------------------------------------------------------------------
+
+This repository vendors Protocol Buffers (.proto) definitions under proto/,
+copied from the Hyperledger Fabric protobuf definitions:
+
+    Project:  Hyperledger Fabric Protos
+    Source:   https://github.com/hyperledger/fabric-protos
+    License:  Apache License, Version 2.0
+    Copyright: The Hyperledger Fabric contributors
+
+The original SPDX-License-Identifier headers are preserved verbatim in each
+vendored .proto file. These files are compiled at build time by tonic-build to
+generate the wire types used to communicate with a Hyperledger Fabric peer's
+Gateway service.
+
+This crate is a port of the Go client from the Hyperledger Fabric Gateway
+project (https://github.com/hyperledger/fabric-gateway), also Apache-2.0
+licensed. No source is copied from that project; only its public behaviour and
+wire format are reproduced.

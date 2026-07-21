@@ -1,0 +1,42 @@
+[package]
+name = "fabric-gateway"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Rust client for the Hyperledger Fabric Gateway — a port of fabric-gateway-go"
+license = "Apache-2.0"
+repository = "https://github.com/chainlaunch/fabric-gateway-rs"
+homepage = "https://github.com/chainlaunch/fabric-gateway-rs"
+documentation = "https://docs.rs/fabric-gateway"
+readme = "README.md"
+keywords = ["hyperledger", "fabric", "blockchain", "gateway", "grpc"]
+categories = ["cryptography", "api-bindings", "network-programming"]
+
+[dependencies]
+tonic = { version = "0.12", features = ["tls", "tls-roots"] }
+prost = "0.13"
+prost-types = "0.13"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tonic-types = "0.12"
+futures-core = "0.3"
+async-trait = "0.1"
+thiserror = "1"
+
+# Crypto + identity
+p256 = { version = "0.13", features = ["ecdsa", "pem", "pkcs8"] }
+sha2 = "0.10"
+signature = "2"
+x509-cert = { version = "0.2", features = ["pem"] }
+sec1 = { version = "0.7", features = ["pem", "pkcs8"] }
+der = "0.7"
+elliptic-curve = { version = "0.13", features = ["pem"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+hex = "0.4"
+pem = "3"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

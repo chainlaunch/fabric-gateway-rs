@@ -1,0 +1,8 @@
+# cargo-audit configuration.
+[advisories]
+ignore = [
+    # rustls-pemfile is flagged unmaintained. It is a *transitive* dependency
+    # via tonic 0.12; there is no direct dependency to bump. Not a
+    # vulnerability. Revisit when tonic drops rustls-pemfile.
+    "RUSTSEC-2025-0134",
+]

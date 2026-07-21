@@ -1,0 +1,12 @@
+# Rust build output
+/target
+
+# Parity harness build output and generated artifacts.
+# NOTE: never commit generated keys/certs or wire artifacts.
+parity-harness/parity
+parity-harness/*.pem
+parity-harness/*.bin
+parity-harness/go_proposal.json
+
+# Cargo.lock IS committed: this crate ships example binaries, so a pinned
+# lockfile keeps those builds reproducible.
