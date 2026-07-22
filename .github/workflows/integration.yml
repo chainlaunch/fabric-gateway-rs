@@ -1,0 +1,98 @@
+name: Integration (fabric-samples)
+
+# Stands up the official Hyperledger fabric-samples test network and runs this
+# client against it for real — the full transaction lifecycle plus cross-SDK
+# interop with fabric-gateway-go. Not run on every PR (it pulls Docker images
+# and takes several minutes); runs on main, on demand, and weekly.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  FABRIC_VERSION: "2.5.9"
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: parity-harness/go.mod
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install fabric-samples + binaries + Docker images
+        run: |
+          curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh \
+            | bash -s -- --fabric-version "${FABRIC_VERSION}" docker samples binary
+
+      - name: Bring up test network + deploy asset-transfer-basic
+        working-directory: fabric-samples/test-network
+        run: |
+          ./network.sh up createChannel -c mychannel -ca
+          ./network.sh deployCC -ccn basic -ccp ../asset-transfer-basic/chaincode-go -ccl go
+
+      - name: Resolve Fabric client identity + endpoint into the environment
+        run: |
+          ORG1="$GITHUB_WORKSPACE/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com"
+          {
+            echo "FABRIC_ENDPOINT=localhost:7051"
+            echo "FABRIC_OVERRIDE=peer0.org1.example.com"
+            echo "FABRIC_TLS_CA=$ORG1/peers/peer0.org1.example.com/tls/ca.crt"
+            echo "FABRIC_CERT=$(ls "$ORG1"/users/User1@org1.example.com/msp/signcerts/*.pem | head -1)"
+            echo "FABRIC_KEY=$(ls "$ORG1"/users/User1@org1.example.com/msp/keystore/* | head -1)"
+            echo "FABRIC_MSP=Org1MSP"
+            echo "FABRIC_CHANNEL=mychannel"
+            echo "FABRIC_CHAINCODE=basic"
+            echo "FABRIC_ASSET_ID=rust-it-${{ github.run_id }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Rust lifecycle test (submit → commit → read-back)
+        env:
+          FABRIC_IT: "1"
+        run: cargo test --test fabric_samples -- --nocapture
+
+      - name: Build the fabric-gateway-go harness
+        working-directory: parity-harness
+        run: go build -o parity .
+
+      - name: Interop — Rust writes, Go reads
+        run: |
+          cargo run --quiet --example query -- \
+            --endpoint "$FABRIC_ENDPOINT" --override "$FABRIC_OVERRIDE" \
+            --tls-ca "$FABRIC_TLS_CA" --cert "$FABRIC_CERT" --key "$FABRIC_KEY" \
+            --msp "$FABRIC_MSP" --channel "$FABRIC_CHANNEL" --chaincode "$FABRIC_CHAINCODE" \
+            --submit --fn CreateAsset rust-to-go blue 5 alice 100
+          OUT=$(cd parity-harness && ./parity live-evaluate ReadAsset rust-to-go)
+          echo "Go read: $OUT"
+          echo "$OUT" | grep -q rust-to-go && echo "$OUT" | grep -q alice
+
+      - name: Interop — Go writes, Rust reads
+        run: |
+          (cd parity-harness && ./parity live-submit CreateAsset go-to-rust red 6 bob 200)
+          OUT=$(cargo run --quiet --example query -- \
+            --endpoint "$FABRIC_ENDPOINT" --override "$FABRIC_OVERRIDE" \
+            --tls-ca "$FABRIC_TLS_CA" --cert "$FABRIC_CERT" --key "$FABRIC_KEY" \
+            --msp "$FABRIC_MSP" --channel "$FABRIC_CHANNEL" --chaincode "$FABRIC_CHAINCODE" \
+            --fn ReadAsset go-to-rust)
+          echo "Rust read: $OUT"
+          echo "$OUT" | grep -q go-to-rust && echo "$OUT" | grep -q bob
+
+      - name: Tear down network
+        if: always()
+        working-directory: fabric-samples/test-network
+        run: ./network.sh down || true

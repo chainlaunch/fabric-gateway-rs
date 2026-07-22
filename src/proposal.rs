@@ -33,10 +33,10 @@ pub(crate) struct TransactionContext {
 }
 
 impl TransactionContext {
-    pub fn new(signing_id: &SigningIdentity) -> Self {
-        let mut nonce = vec![0u8; 24];
-        OsRng.fill_bytes(&mut nonce);
-
+    /// Build a context from a caller-supplied nonce. Used by `build()` (random
+    /// nonce) and by the differential conformance tests (fixed nonce, to make
+    /// the output byte-comparable against fabric-gateway-go).
+    pub fn with_nonce(signing_id: &SigningIdentity, nonce: Vec<u8>) -> Self {
         let creator = signing_id.creator();
 
         // txid = hex(sha256(nonce || creator))
@@ -122,10 +122,25 @@ impl<'a> ProposalBuilder<'a> {
         self
     }
 
-    /// Build the [`Proposal`], generating a fresh transaction context.
+    /// Build the [`Proposal`], generating a fresh transaction context (random
+    /// nonce, current timestamp).
     pub fn build(self) -> Result<Proposal, GatewayError> {
-        let ctx = TransactionContext::new(&self.signing_id);
-        let proposal_bytes = self.proposal_bytes(&ctx)?;
+        let mut nonce = vec![0u8; 24];
+        OsRng.fill_bytes(&mut nonce);
+        self.build_with_context(nonce, now_timestamp())
+    }
+
+    /// Build the proposal with a caller-supplied nonce and timestamp. Not part
+    /// of the public API — used by the differential conformance tests to make
+    /// the serialised bytes reproducible and comparable against
+    /// fabric-gateway-go.
+    pub(crate) fn build_with_context(
+        self,
+        nonce: Vec<u8>,
+        timestamp: prost_types::Timestamp,
+    ) -> Result<Proposal, GatewayError> {
+        let ctx = TransactionContext::with_nonce(&self.signing_id, nonce);
+        let proposal_bytes = self.proposal_bytes(&ctx, &timestamp)?;
 
         let proposed = ProposedTransaction {
             transaction_id: ctx.transaction_id.clone(),
@@ -144,8 +159,12 @@ impl<'a> ProposalBuilder<'a> {
         })
     }
 
-    fn proposal_bytes(&self, ctx: &TransactionContext) -> Result<Vec<u8>, GatewayError> {
-        let header_bytes = self.header_bytes(ctx)?;
+    fn proposal_bytes(
+        &self,
+        ctx: &TransactionContext,
+        timestamp: &prost_types::Timestamp,
+    ) -> Result<Vec<u8>, GatewayError> {
+        let header_bytes = self.header_bytes(ctx, timestamp)?;
         let payload_bytes = self.chaincode_proposal_payload_bytes()?;
 
         let proposal = PbProposal {
@@ -156,8 +175,12 @@ impl<'a> ProposalBuilder<'a> {
         Ok(proposal.encode_to_vec())
     }
 
-    fn header_bytes(&self, ctx: &TransactionContext) -> Result<Vec<u8>, GatewayError> {
-        let channel_header_bytes = self.channel_header_bytes(ctx);
+    fn header_bytes(
+        &self,
+        ctx: &TransactionContext,
+        timestamp: &prost_types::Timestamp,
+    ) -> Result<Vec<u8>, GatewayError> {
+        let channel_header_bytes = self.channel_header_bytes(ctx, timestamp);
         let signature_header_bytes = ctx.signature_header.encode_to_vec();
 
         let header = Header {
@@ -167,7 +190,11 @@ impl<'a> ProposalBuilder<'a> {
         Ok(header.encode_to_vec())
     }
 
-    fn channel_header_bytes(&self, ctx: &TransactionContext) -> Vec<u8> {
+    fn channel_header_bytes(
+        &self,
+        ctx: &TransactionContext,
+        timestamp: &prost_types::Timestamp,
+    ) -> Vec<u8> {
         let extension = ChaincodeHeaderExtension {
             chaincode_id: Some(ChaincodeId {
                 path: String::new(),
@@ -180,7 +207,7 @@ impl<'a> ProposalBuilder<'a> {
         let channel_header = ChannelHeader {
             r#type: HeaderType::EndorserTransaction as i32,
             version: 0,
-            timestamp: Some(now_timestamp()),
+            timestamp: Some(*timestamp),
             channel_id: self.channel_name.clone(),
             tx_id: ctx.transaction_id.clone(),
             epoch: 0,

@@ -6,7 +6,7 @@
 parity-harness/parity
 parity-harness/*.pem
 parity-harness/*.bin
-parity-harness/go_proposal.json
+parity-harness/*.json
 
 # Cargo.lock IS committed: this crate ships example binaries, so a pinned
 # lockfile keeps those builds reproducible.

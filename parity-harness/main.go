@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/fabric-gateway/pkg/client"
 	"github.com/hyperledger/fabric-gateway/pkg/identity"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -131,9 +132,103 @@ func main() {
 		must(os.WriteFile("pub.pem", pemBytes, 0644))
 		emit(map[string]string{"pubkey_sha256": hex.EncodeToString(sha256Sum(der))})
 
+	case "conformance":
+		// Differential conformance: read a JSON array of proposal cases and emit
+		// each one's serialized ProposedTransaction bytes (hex). The Rust side
+		// rebuilds each case with the same nonce+timestamp (extracted from these
+		// bytes) and asserts byte-for-byte equality.
+		conformance(id, key, os.Args[2])
+
+	case "live-evaluate":
+		// Connect to a live gateway (FABRIC_* env) and evaluate a transaction.
+		gw, conn := connectLive()
+		defer conn.Close()
+		contract := gw.GetNetwork(os.Getenv("FABRIC_CHANNEL")).GetContract(os.Getenv("FABRIC_CHAINCODE"))
+		result, err := contract.EvaluateTransaction(os.Args[2], os.Args[3:]...)
+		must(err)
+		fmt.Println(string(result))
+
+	case "live-submit":
+		// Connect to a live gateway (FABRIC_* env) and submit a transaction.
+		gw, conn := connectLive()
+		defer conn.Close()
+		contract := gw.GetNetwork(os.Getenv("FABRIC_CHANNEL")).GetContract(os.Getenv("FABRIC_CHAINCODE"))
+		result, err := contract.SubmitTransaction(os.Args[2], os.Args[3:]...)
+		must(err)
+		fmt.Printf("committed: %s\n", string(result))
+
 	default:
 		panic("unknown command: " + os.Args[1])
 	}
+}
+
+// connectLive builds a Gateway against a real peer using FABRIC_* environment
+// variables (endpoint, TLS CA, cert, key, MSP). Used for cross-SDK interop.
+func connectLive() (*client.Gateway, *grpc.ClientConn) {
+	caPEM, err := os.ReadFile(os.Getenv("FABRIC_TLS_CA"))
+	must(err)
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caPEM) {
+		panic("failed to add TLS CA cert")
+	}
+	creds := credentials.NewClientTLSFromCert(pool, os.Getenv("FABRIC_OVERRIDE"))
+	conn, err := grpc.NewClient(os.Getenv("FABRIC_ENDPOINT"), grpc.WithTransportCredentials(creds))
+	must(err)
+
+	certPEM, err := os.ReadFile(os.Getenv("FABRIC_CERT"))
+	must(err)
+	cert, err := identity.CertificateFromPEM(certPEM)
+	must(err)
+	id, err := identity.NewX509Identity(os.Getenv("FABRIC_MSP"), cert)
+	must(err)
+
+	keyPEM, err := os.ReadFile(os.Getenv("FABRIC_KEY"))
+	must(err)
+	priv, err := identity.PrivateKeyFromPEM(keyPEM)
+	must(err)
+	sign, err := identity.NewPrivateKeySign(priv)
+	must(err)
+
+	gw, err := client.Connect(id, client.WithSign(sign), client.WithClientConnection(conn))
+	must(err)
+	return gw, conn
+}
+
+// proposalCase mirrors the JSON the Rust conformance test writes.
+type proposalCase struct {
+	Channel       string            `json:"channel"`
+	Chaincode     string            `json:"chaincode"`
+	Function      string            `json:"function"`
+	Args          []string          `json:"args"`
+	Transient     map[string]string `json:"transient"`
+	EndorsingOrgs []string          `json:"endorsingOrgs"`
+}
+
+func conformance(id *identity.X509Identity, key *ecdsa.PrivateKey, casesFile string) {
+	gw := connectOffline(id, key)
+	raw, err := os.ReadFile(casesFile)
+	must(err)
+	var cases []proposalCase
+	must(json.Unmarshal(raw, &cases))
+
+	out := make([]string, 0, len(cases))
+	for _, c := range cases {
+		opts := []client.ProposalOption{client.WithArguments(c.Args...)}
+		if len(c.Transient) > 0 {
+			transient := make(map[string][]byte, len(c.Transient))
+			for k, v := range c.Transient {
+				transient[k] = []byte(v)
+			}
+			opts = append(opts, client.WithTransient(transient))
+		}
+		if len(c.EndorsingOrgs) > 0 {
+			opts = append(opts, client.WithEndorsingOrganizations(c.EndorsingOrgs...))
+		}
+		p, err := gw.GetNetwork(c.Channel).GetContract(c.Chaincode).NewProposal(c.Function, opts...)
+		must(err)
+		out = append(out, hex.EncodeToString(mustBytes(p.Bytes())))
+	}
+	emit(out)
 }
 
 func sha256Sum(b []byte) []byte { h := sha256.Sum256(b); return h[:] }

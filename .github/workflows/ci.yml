@@ -24,6 +24,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      # Go toolchain lets the differential conformance test build the
+      # fabric-gateway-go harness and run for real (instead of skipping).
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: parity-harness/go.mod
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Format
@@ -32,7 +38,7 @@ jobs:
       - name: Build
         run: cargo build --workspace --all-targets
 
-      - name: Test
+      - name: Test (incl. differential conformance vs fabric-gateway-go)
         run: cargo test --workspace
 
       - name: Clippy

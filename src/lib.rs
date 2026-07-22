@@ -58,6 +58,9 @@ mod signing;
 mod transaction;
 mod util;
 
+#[cfg(test)]
+mod conformance;
+
 pub use commit::{Commit, Status};
 pub use contract::Contract;
 pub use error::{GatewayError, TransactionError};
