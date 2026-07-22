@@ -60,6 +60,12 @@ mod util;
 
 #[cfg(test)]
 mod conformance;
+#[cfg(test)]
+mod robustness;
+
+#[cfg(feature = "_fuzz")]
+#[doc(hidden)]
+pub mod fuzz_api;
 
 pub use commit::{Commit, Status};
 pub use contract::Contract;

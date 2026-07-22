@@ -136,7 +136,9 @@ impl Transaction {
 
 /// Extract the channel name and chaincode result payload from an endorsed
 /// transaction envelope. Ports `parseTransactionEnvelope`.
-fn parse_transaction_envelope(envelope: &Envelope) -> Result<(String, Vec<u8>), GatewayError> {
+pub(crate) fn parse_transaction_envelope(
+    envelope: &Envelope,
+) -> Result<(String, Vec<u8>), GatewayError> {
     let payload = Payload::decode(envelope.payload.as_slice())
         .map_err(|e| GatewayError::Protobuf(format!("failed to deserialize payload: {e}")))?;
 

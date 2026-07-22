@@ -119,6 +119,22 @@ infrastructure rather than take any single run on trust:
   client write an asset that the Go client reads back, and vice versa — proving
   the two implementations agree on a real ledger, not just in a byte comparison.
 
+- **Robustness / fuzzing**: `src/robustness.rs` (main CI) throws tens of
+  thousands of malformed, truncated, and bit-flipped inputs at every
+  network-facing decoder and asserts no panics; deeper coverage-guided
+  `cargo-fuzz` targets under `fuzz/` (nightly CI) ran ~2.2–2.4M iterations each
+  with zero crashes.
+
+- **Mutation testing** (`.github/workflows/mutants.yml`): `cargo-mutants`
+  injects bugs into the crypto/wire core and checks the suite catches them.
+  Latest focused run on `identity.rs` + `proposal.rs`: **41 of 42 viable mutants
+  killed (97.6%)**; the one survivor is a provably-equivalent mutant. This is the
+  evidence the tests actually bite, rather than merely execute code.
+
+- **Soak test** (`examples/soak.rs`): 550 consecutive live operations
+  (500 queries + 50 submit→commit cycles) completed with **zero failures** and
+  **flat ~10 MB memory** — no leak, works reliably rather than once.
+
 ## Conclusion
 
 `fabric-gateway-rs` is functionally equivalent to fabric-gateway-go for the

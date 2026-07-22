@@ -1,0 +1,39 @@
+[package]
+name = "fabric-gateway-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.fabric-gateway]
+path = ".."
+features = ["_fuzz"]
+
+# Fuzz targets — one binary each.
+[[bin]]
+name = "proposal"
+path = "fuzz_targets/proposal.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "envelope"
+path = "fuzz_targets/envelope.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "error_details"
+path = "fuzz_targets/error_details.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

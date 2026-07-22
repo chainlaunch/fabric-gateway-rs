@@ -10,3 +10,12 @@ parity-harness/*.json
 
 # Cargo.lock IS committed: this crate ships example binaries, so a pinned
 # lockfile keeps those builds reproducible.
+
+# cargo-fuzz
+fuzz/target
+fuzz/corpus
+fuzz/artifacts
+fuzz/Cargo.lock
+
+# cargo-mutants output
+mutants.out*/

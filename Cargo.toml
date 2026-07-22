@@ -12,6 +12,11 @@ readme = "README.md"
 keywords = ["hyperledger", "fabric", "blockchain", "gateway", "grpc"]
 categories = ["cryptography", "api-bindings", "network-programming"]
 
+[features]
+# Internal: exposes byte-taking decoder shims for the cargo-fuzz targets under
+# fuzz/. Not part of the public API; do not enable in application code.
+_fuzz = []
+
 [dependencies]
 tonic = { version = "0.12", features = ["tls", "tls-roots"] }
 prost = "0.13"

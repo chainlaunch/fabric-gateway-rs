@@ -119,7 +119,7 @@ struct RpcStatus {
 
 /// Decode `gateway.ErrorDetail` messages packed into a gRPC status's
 /// `google.rpc.Status.details`. Mirrors Go's `grpcError.Details()`.
-fn decode_error_details(status: &tonic::Status) -> Vec<ErrorDetail> {
+pub(crate) fn decode_error_details(status: &tonic::Status) -> Vec<ErrorDetail> {
     use prost::Message;
 
     // tonic exposes the status-details bytes as a serialized google.rpc.Status.

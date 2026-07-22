@@ -107,6 +107,8 @@ Runnable examples live in [`examples/`](examples/):
   Gateway SDKs or the legacy `fabric-network` / `fabric-sdk-go` SDKs.
 - [docs/faq.md](docs/faq.md) — troubleshooting common errors.
 - [PARITY.md](PARITY.md) — parity methodology and live-network results.
+- [LIMITATIONS.md](LIMITATIONS.md) — what's not implemented yet, and how this
+  was built and verified (provenance).
 
 ## Loading keys and certificates from the filesystem
 

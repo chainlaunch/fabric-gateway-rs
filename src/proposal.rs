@@ -356,3 +356,62 @@ impl Proposal {
         Ok(response.result.map(|r| r.payload).unwrap_or_default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Gateway, Identity};
+    use sha2::{Digest, Sha256};
+    use std::sync::Arc;
+
+    // Build an offline proposal signed by a closure signer that returns the
+    // digest it was given, so signing behaviour is observable in-process.
+    async fn build_proposal() -> Proposal {
+        let identity = Identity::new("Org1MSP", b"test-cert".to_vec());
+        let channel = tonic::transport::Channel::from_static("http://127.0.0.1:0").connect_lazy();
+        let signer = Arc::new(|digest: &[u8]| Ok(digest.to_vec()));
+        let gateway = Gateway::builder(identity, channel)
+            .with_sign(signer)
+            .connect()
+            .unwrap();
+        gateway
+            .get_network("mychannel")
+            .get_contract("basic")
+            .new_proposal("CreateAsset")
+            .with_arguments(["a", "b"])
+            .build()
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn digest_is_sha256_of_proposal_bytes() {
+        let p = build_proposal().await;
+        let proposal_bytes = p.proposed.proposal.as_ref().unwrap().proposal_bytes.clone();
+        let mut hasher = Sha256::new();
+        hasher.update(&proposal_bytes);
+        assert_eq!(p.digest(), hasher.finalize().to_vec());
+    }
+
+    #[tokio::test]
+    async fn transaction_id_is_64_hex_chars() {
+        let p = build_proposal().await;
+        let tx = p.transaction_id();
+        assert_eq!(tx.len(), 64, "txid must be 32-byte hex");
+        assert!(tx.chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(!tx.is_empty());
+    }
+
+    #[tokio::test]
+    async fn signing_sets_the_signature_from_the_signer() {
+        let mut p = build_proposal().await;
+        assert!(!p.is_signed(), "fresh proposal is unsigned");
+        let expected = p.digest(); // closure signer returns the digest verbatim
+        p.sign().unwrap();
+        assert!(p.is_signed(), "proposal must be signed after sign()");
+        assert_eq!(
+            p.proposed.proposal.as_ref().unwrap().signature,
+            expected,
+            "signature must be exactly what the Signer returned"
+        );
+    }
+}

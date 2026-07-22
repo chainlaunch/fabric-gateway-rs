@@ -1,0 +1,38 @@
+name: Mutation testing
+
+# Runs cargo-mutants to verify the test suite actually catches injected bugs
+# (kills mutants) rather than just executing code. Slow, so scheduled + on demand.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
+      - uses: dtolnay/rust-toolchain@stable
+      # Go lets the differential conformance test run inside each mutant, which
+      # is a strong killer of proposal-encoding mutants.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: parity-harness/go.mod
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants
+      - name: Run mutation testing on the crypto/wire core
+        run: |
+          cargo mutants --jobs 4 \
+            --file src/identity.rs --file src/proposal.rs --file src/signing.rs \
+            --file src/transaction.rs --file src/commit.rs --file src/hash.rs \
+            --file src/error.rs
+      - name: Upload mutants report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-report
+          path: mutants.out/

@@ -1,0 +1,16 @@
+# cargo-mutants configuration.
+# Focus mutation testing on the crypto/wire core, where a surviving mutant would
+# mean a real correctness gap. Skip generated protobuf code and the thin async
+# glue whose behaviour is covered by the live integration tests, not unit tests.
+exclude_globs = ["src/pb.rs", "src/client.rs", "src/fuzz_api.rs"]
+
+# Network round-trip methods perform a live gRPC call; their behaviour is
+# verified by the live integration + cross-SDK interop tests, not by unit tests,
+# so exclude them from mutation scoring to keep the score reflective of
+# unit-testable logic.
+exclude_re = [
+    "Proposal::(evaluate|endorse)",
+    "Transaction::submit",
+    "Commit::status",
+    "::events",
+]
