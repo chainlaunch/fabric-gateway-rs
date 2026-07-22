@@ -24,7 +24,7 @@ async-trait = "0.1"
 thiserror = "1"
 
 # Crypto + identity
-p256 = { version = "0.13", features = ["ecdsa", "pem", "pkcs8"] }
+p256 = { version = "0.14", features = ["ecdsa", "pem", "pkcs8"] }
 sha2 = "0.10"
 signature = "2"
 x509-cert = { version = "0.2", features = ["pem"] }
