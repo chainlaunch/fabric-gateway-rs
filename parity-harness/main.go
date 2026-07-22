@@ -60,7 +60,14 @@ func main() {
 	if len(os.Args) < 2 {
 		panic("usage: main <command>")
 	}
-	id, key := loadIdentity()
+
+	// The live commands build their identity from FABRIC_* env via connectLive();
+	// only the offline/parity commands need the local cert.pem/key.pem fixture.
+	var id *identity.X509Identity
+	var key *ecdsa.PrivateKey
+	if os.Args[1] != "live-evaluate" && os.Args[1] != "live-submit" {
+		id, key = loadIdentity()
+	}
 
 	switch os.Args[1] {
 	case "creator":
