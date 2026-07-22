@@ -1,43 +1,27 @@
 # Releasing
 
-`fabric-gateway` is published to [crates.io](https://crates.io/crates/fabric-gateway).
-There are two ways to publish; the first is a one-time setup that makes every
-future release push-button.
+`fabric-gateway` is published to [crates.io](https://crates.io/crates/fabric-gateway)
+**manually**. There is no CI release workflow — a maintainer runs `cargo publish`
+from their machine so publishing is a deliberate, reviewed step.
 
-## Option A — Trusted Publishing (recommended, no tokens)
-
-crates.io supports [Trusted Publishing](https://crates.io/docs/trusted-publishing):
-GitHub Actions authenticates via OIDC, so no API token is ever stored.
-
-**One-time setup** (crates.io owner, `dviejokfs`):
-
-1. Go to <https://crates.io/crates/fabric-gateway/settings> → *Trusted Publishing*.
-2. Add a GitHub publisher:
-   - Repository owner: `chainlaunch`
-   - Repository name: `fabric-gateway-rs`
-   - Workflow filename: `release.yml`
-   - Environment: `release`
-
-**Each release** thereafter:
+## Publish a release
 
 ```bash
 # 1. Bump the version in Cargo.toml and update CHANGELOG.md.
-# 2. Commit, then tag and push the tag:
+# 2. Sanity-check the build and the package contents:
+cargo publish --dry-run
+
+# 3. Publish (needs a crates.io token; `cargo login` once to store it):
+cargo login          # paste a token from https://crates.io/settings/tokens
+cargo publish
+
+# 4. Tag the release and push:
 git commit -am "chore(release): v0.1.1"
 git tag v0.1.1
 git push origin main v0.1.1
 ```
 
-Pushing the `v*` tag triggers `.github/workflows/release.yml`, which verifies the
-tag matches `Cargo.toml`, obtains a short-lived token via OIDC, and runs
-`cargo publish`.
-
-## Option B — manual publish with an API token
-
-```bash
-cargo login          # paste a token from https://crates.io/settings/tokens
-cargo publish        # run `cargo publish --dry-run` first to sanity-check
-```
+The `v*` tag is just a marker in git history — nothing is triggered by it.
 
 ## Versioning
 
