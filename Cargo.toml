@@ -34,7 +34,7 @@ sha2 = "0.10"
 signature = "2"
 x509-cert = { version = "0.2", features = ["pem"] }
 sec1 = { version = "0.7", features = ["pem", "pkcs8"] }
-der = "0.7"
+der = "0.8"
 elliptic-curve = { version = "0.13", features = ["pem"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 hex = "0.4"
