@@ -18,7 +18,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       # Go lets the differential conformance test run inside each mutant, which
       # is a strong killer of proposal-encoding mutants.
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: parity-harness/go.mod
       - uses: Swatinem/rust-cache@v2
